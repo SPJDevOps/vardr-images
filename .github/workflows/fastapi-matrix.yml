@@ -22,10 +22,12 @@ jobs:
           - python_version: "3.12"
             distroless: "true"
             tag: "python12"
+            base_image: "gcr.io/distroless/python3-debian12"
             description: "Python 3.12 with Distroless runtime"
           - python_version: "3.13"
             distroless: "false"
             tag: "python13"
+            base_image: "python:3.13-slim"
             description: "Python 3.13 with Slim runtime"
 
     steps:
@@ -61,7 +63,7 @@ jobs:
           build-args: |
             PYTHON_VERSION=${{ matrix.python_version }}
             DISTROLESS=${{ matrix.distroless }}
-            BASE_IMAGE=${{ matrix.distroless == 'true' && 'gcr.io/distroless/python3-debian12' || 'python:3.13-slim' }}
+            BASE_IMAGE=${{ matrix.base_image }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: ${{ github.ref != 'refs/heads/main' && 'type=gha' || '' }}
@@ -89,9 +91,11 @@ jobs:
           - python_version: "3.12"
             tag: "python12"
             distroless: "true"
+            base_image: "gcr.io/distroless/python3-debian12"
           - python_version: "3.13"
             tag: "python13"
             distroless: "false"
+            base_image: "python:3.13-slim"
 
     steps:
       - name: Checkout repository
