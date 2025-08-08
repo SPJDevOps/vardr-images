@@ -22,7 +22,7 @@ jobs:
         image:
           - name: spring-boot
             context: spring-boot
-            tags: "latest,java21"
+            tag: "java21"
           # - name: fast-api
           #   context: fast-api
           #   tags: "latest,python13"
@@ -68,7 +68,7 @@ jobs:
       - name: Security scan with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:latest
+          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:${{ matrix.image.tag}}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
@@ -82,7 +82,7 @@ jobs:
       - name: Generate SBOM with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:latest
+          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:${{ matrix.image.tag}}
           format: 'cyclonedx'
           output: 'sbom-cyclonedx.json'
           command: 'fs'
@@ -90,7 +90,7 @@ jobs:
       - name: Generate SBOM with Syft
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:latest
+          image: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:${{ matrix.image.tag}}
           format: spdx-json
           output-file: sbom-spdx.json
 
@@ -98,7 +98,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: sbom-${{ matrix.image.name }}-latest
+          name: sbom-${{ matrix.image.name }}-${{ matrix.image.tag}}-${{ github.sha }}
           path: |
             sbom-cyclonedx.json
             sbom-spdx.json
@@ -126,4 +126,4 @@ jobs:
       - name: Attach SBOM to image
         if: github.event_name != 'pull_request'
         run: |
-          cosign attach sbom --sbom sbom-cyclonedx.json ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:latest
+          cosign attach sbom --sbom sbom-cyclonedx.json ${{ steps.meta.outputs.tags }}
