@@ -29,12 +29,12 @@ jobs:
         include:
           - python_version: "3.12"
             distroless: "true"
-            tag: "python12"
+            tag: "python3.12"
             base_image: "distroless"
             description: "Python 3.12 with Distroless runtime"
           - python_version: "3.13"
             distroless: "false"
-            tag: "python13"
+            tag: "python3.13"
             base_image: "slim"
             description: "Python 3.13 with Slim runtime"
 
@@ -110,11 +110,11 @@ jobs:
       matrix:
         include:
           - python_version: "3.12"
-            tag: "python12"
+            tag: "python3.12"
             distroless: "true"
             base_image: "distroless"
           - python_version: "3.13"
-            tag: "python13"
+            tag: "python3.13"
             distroless: "false"
             base_image: "slim"
 
