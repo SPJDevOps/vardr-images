@@ -2,7 +2,7 @@ name: Build FastAPI Matrix Images
 
 on:
   schedule:
-    - cron: '0 12,0 * * *'   # Every day at 12:00 and 00:00 UTC
+    - cron: '0 12,0 * * *'
   push:
     branches: [ main ]
     paths: [ 'fastapi/**', '.github/workflows/fastapi-matrix.yml' ]
@@ -68,8 +68,8 @@ jobs:
             BASE_IMAGE=${{ matrix.base_image }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: ${{ github.ref != 'refs/heads/main' && 'type=gha' || '' }}
-          cache-to: ${{ github.ref != 'refs/heads/main' && 'type=gha,mode=max' || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Security scan
         uses: aquasecurity/trivy-action@master
@@ -115,51 +115,32 @@ jobs:
 
       - name: Pull and tag test image
         run: |
-          # Pull the exact pushed image
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
-          
-          # Tag for local testing
           docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} test-fastapi:${{ matrix.tag }}
 
       - name: Generate test certificate
         run: |
-          # Generate a real test certificate
           openssl req -x509 -newkey rsa:4096 -keyout key.pem -out test.crt -days 365 -nodes \
             -subj "/C=US/ST=Test/L=Test/O=Test/CN=test.example.com"
 
       - name: Test certificate management
         run: |
-          # Start container with certificate
           docker run -d --name test-cert \
             -v $(pwd)/test.crt:/certs/test.crt:ro \
             test-fastapi:${{ matrix.tag }}
-          
-          # Wait for startup with health check
           timeout 30s bash -c 'until docker logs test-cert | grep -q "Starting FastAPI application"; do sleep 1; done' || true
-          
-          # Check if container is running
           docker ps | grep test-cert
-          
-          # Cleanup
           docker rm -f test-cert || true
 
       - name: Test without certificates
         run: |
-          # Test without certificates
           docker run -d --name test-no-cert test-fastapi:${{ matrix.tag }}
-          
-          # Wait for startup
           timeout 30s bash -c 'until docker logs test-no-cert | grep -q "No certificates found"; do sleep 1; done' || true
-          
-          # Check if container is running
           docker ps | grep test-no-cert
-          
-          # Cleanup
           docker rm -f test-no-cert || true
 
       - name: Test FastAPI application
         run: |
-          # Create a simple FastAPI test app
           cat > test_app.py << 'EOF'
           from fastapi import FastAPI
           app = FastAPI()
@@ -167,18 +148,10 @@ jobs:
           async def root():
               return {"message": "Hello World"}
           EOF
-          
-          # Start container with test app
           docker run -d --name test-app \
             -v $(pwd)/test_app.py:/app/app.py \
             -p 8000:8000 \
             test-fastapi:${{ matrix.tag }}
-          
-          # Wait for startup
           timeout 30s bash -c 'until curl -s http://localhost:8000/ > /dev/null; do sleep 1; done' || true
-          
-          # Test the API
           curl -s http://localhost:8000/ | grep -q "Hello World"
-          
-          # Cleanup
-          docker rm -f test-app || true 
+          docker rm -f test-app || true
