@@ -27,6 +27,9 @@ COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /certificate_manager.py /certificate_manager.py
 VOLUME ["/certs"]
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=8000 WORKERS=1
+# Distroless runs as nonroot by default, ensure /certs is accessible
+RUN mkdir -p /certs && chown -R 65532:65532 /certs
+USER 65532:65532
 ENTRYPOINT ["python", "/certificate_manager.py"]
 
 # ====== Stage 3: Alpine runtime ======
@@ -41,6 +44,7 @@ COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /certificate_manager.py /certificate_manager.py
 VOLUME ["/certs"]
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=8000 WORKERS=1
-RUN addgroup -g 1000 appuser && adduser -D -s /bin/sh -u 1000 -G appuser appuser
+RUN addgroup -g 1000 appuser && adduser -D -s /bin/sh -u 1000 -G appuser appuser && \
+    mkdir -p /certs && chown -R appuser:appuser /certs
 USER appuser
 ENTRYPOINT ["python", "/certificate_manager.py"]

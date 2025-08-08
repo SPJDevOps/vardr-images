@@ -25,9 +25,9 @@ class CertificateManager:
     
     def __init__(self):
         self.certs_dir = "/certs"
-        self.hash_file = "/tmp/certs.hash"
+        self.hash_file = "/app/certs.hash"
         self.json_logging = os.getenv("VARD_JSON_LOGS", "false").lower() == "true"
-        self.custom_ca_bundle = "/tmp/custom_ca_bundle.pem"
+        self.custom_ca_bundle = "/app/custom_ca_bundle.pem"
         
     def log(self, message: str, level: str = "INFO") -> None:
         """Log messages with optional JSON formatting."""
@@ -100,11 +100,13 @@ class CertificateManager:
     def validate_certificate(self, cert_path: Path) -> bool:
         """Validate certificate format using Python's ssl module."""
         try:
-            with open(cert_path, 'rb') as f:
+            with open(cert_path, 'r') as f:
                 cert_data = f.read()
             
             # Try to load the certificate using ssl module
-            ssl.PEM_cert_to_DER_cert(cert_data.decode())
+            # Create a temporary context to validate the certificate
+            context = ssl.create_default_context()
+            context.load_verify_locations(cadata=cert_data)
             return True
         except Exception:
             return False

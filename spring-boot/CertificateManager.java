@@ -14,10 +14,10 @@ import java.util.List;
 import java.util.Arrays;
 
 public class CertificateManager {
-    private static final String TRUSTSTORE_PATH = "/tmp/cacerts";
+    private static final String TRUSTSTORE_PATH = "/app/cacerts";
     private static final String TRUSTSTORE_PASSWORD = "changeit";
     private static final String CERTS_DIR = "/certs";
-    private static final String HASH_FILE = "/tmp/certs.hash";
+    private static final String HASH_FILE = "/app/certs.hash";
     
     // JSON logging for compliance
     private static final boolean JSON_LOGGING = "true".equals(System.getenv("VARD_JSON_LOGS"));
@@ -108,10 +108,14 @@ public class CertificateManager {
     
     private static void importCertificates() throws Exception {
         Path certsDir = Paths.get(CERTS_DIR);
+        log("Checking for certificates in: " + certsDir.toAbsolutePath(), "INFO");
+        
         if (!Files.exists(certsDir)) {
             log("No certificates directory found", "INFO");
             return;
         }
+        
+        log("Certificates directory exists", "INFO");
         
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failureCount = new AtomicInteger(0);
@@ -122,6 +126,8 @@ public class CertificateManager {
                 .filter(path -> path.toString().endsWith(".crt"))
                 .count();
             
+            log("Found " + certCount + " .crt files in directory", "INFO");
+            
             if (certCount == 0) {
                 log("No certificates found in /certs directory", "INFO");
                 return;
@@ -131,8 +137,15 @@ public class CertificateManager {
             
             // Load existing truststore
             KeyStore truststore = KeyStore.getInstance("JKS");
-            try (FileInputStream fis = new FileInputStream(TRUSTSTORE_PATH)) {
-                truststore.load(fis, TRUSTSTORE_PASSWORD.toCharArray());
+            File truststoreFile = new File(TRUSTSTORE_PATH);
+            if (truststoreFile.exists()) {
+                try (FileInputStream fis = new FileInputStream(TRUSTSTORE_PATH)) {
+                    truststore.load(fis, TRUSTSTORE_PASSWORD.toCharArray());
+                }
+            } else {
+                // Create a new truststore if it doesn't exist
+                truststore.load(null, TRUSTSTORE_PASSWORD.toCharArray());
+                log("Created new truststore at " + TRUSTSTORE_PATH, "INFO");
             }
             
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
