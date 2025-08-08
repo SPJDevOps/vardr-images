@@ -1,12 +1,14 @@
 name: Build FastAPI Matrix Images
 
 on:
+  schedule:
+    - cron: '0 12,0 * * *'   # Every day at 12:00 and 00:00 UTC
   push:
     branches: [ main ]
-    paths: [ 'fastapi/**' ]
+    paths: [ 'fastapi/**', '.github/workflows/fastapi-matrix.yml' ]
   pull_request:
     branches: [ main ]
-    paths: [ 'fastapi/**' ]
+    paths: [ 'fastapi/**', '.github/workflows/fastapi-matrix.yml' ]
   workflow_dispatch:
 
 env:
