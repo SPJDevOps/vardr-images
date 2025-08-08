@@ -37,6 +37,11 @@ All Vardr Secure Images follow a consistent multi-stage build pattern:
 - **Features**: Spring Boot optimized JVM settings, certificate management
 - **Documentation**: [Spring Boot Documentation](springboot/README.md)
 
+### FastAPI
+- **Base**: `ghcr.io/vardr/fastapi-secure:latest`
+- **Features**: FastAPI optimized Python settings, certificate management
+- **Documentation**: [FastAPI Documentation](fastapi/README.md)
+
 *More framework-specific images coming soon...*
 
 ## 📋 Quick Start
@@ -168,6 +173,10 @@ docker run \
 # Build Spring Boot image
 cd springboot
 docker build -t vardr/springboot-secure .
+
+# Build FastAPI image
+cd fastapi
+docker build -t vardr/fastapi-secure .
 ```
 
 ### Testing

@@ -1,0 +1,177 @@
+name: Build FastAPI Matrix Images
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'fastapi/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'fastapi/**' ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: spjdevops/vardr/fastapi
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python_version: "3.12"
+            distroless: "true"
+            tag: "python12"
+            description: "Python 3.12 with Distroless runtime"
+          - python_version: "3.13"
+            distroless: "false"
+            tag: "python13"
+            description: "Python 3.13 with Slim runtime"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ matrix.tag }}
+            type=sha,format=long
+
+      - name: Build and push FastAPI image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./fastapi
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python_version }}
+            DISTROLESS=${{ matrix.distroless }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: ${{ github.ref != 'refs/heads/main' && 'type=gha' || '' }}
+          cache-to: ${{ github.ref != 'refs/heads/main' && 'type=gha,mode=max' || '' }}
+
+      - name: Security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.meta.outputs.tags }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - python_version: "3.12"
+            tag: "python12"
+            distroless: "true"
+          - python_version: "3.13"
+            tag: "python13"
+            distroless: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and tag test image
+        run: |
+          # Pull the exact pushed image
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+          
+          # Tag for local testing
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} test-fastapi:${{ matrix.tag }}
+
+      - name: Generate test certificate
+        run: |
+          # Generate a real test certificate
+          openssl req -x509 -newkey rsa:4096 -keyout key.pem -out test.crt -days 365 -nodes \
+            -subj "/C=US/ST=Test/L=Test/O=Test/CN=test.example.com"
+
+      - name: Test certificate management
+        run: |
+          # Start container with certificate
+          docker run -d --name test-cert \
+            -v $(pwd)/test.crt:/certs/test.crt:ro \
+            test-fastapi:${{ matrix.tag }}
+          
+          # Wait for startup with health check
+          timeout 30s bash -c 'until docker logs test-cert | grep -q "Starting FastAPI application"; do sleep 1; done' || true
+          
+          # Check if container is running
+          docker ps | grep test-cert
+          
+          # Cleanup
+          docker rm -f test-cert || true
+
+      - name: Test without certificates
+        run: |
+          # Test without certificates
+          docker run -d --name test-no-cert test-fastapi:${{ matrix.tag }}
+          
+          # Wait for startup
+          timeout 30s bash -c 'until docker logs test-no-cert | grep -q "No certificates found"; do sleep 1; done' || true
+          
+          # Check if container is running
+          docker ps | grep test-no-cert
+          
+          # Cleanup
+          docker rm -f test-no-cert || true
+
+      - name: Test FastAPI application
+        run: |
+          # Create a simple FastAPI test app
+          cat > test_app.py << 'EOF'
+          from fastapi import FastAPI
+          app = FastAPI()
+          @app.get("/")
+          async def root():
+              return {"message": "Hello World"}
+          EOF
+          
+          # Start container with test app
+          docker run -d --name test-app \
+            -v $(pwd)/test_app.py:/app/app.py \
+            -p 8000:8000 \
+            test-fastapi:${{ matrix.tag }}
+          
+          # Wait for startup
+          timeout 30s bash -c 'until curl -s http://localhost:8000/ > /dev/null; do sleep 1; done' || true
+          
+          # Test the API
+          curl -s http://localhost:8000/ | grep -q "Hello World"
+          
+          # Cleanup
+          docker rm -f test-app || true 

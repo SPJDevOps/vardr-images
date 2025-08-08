@@ -1,0 +1,17 @@
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# HTTP client and certificate handling
+requests==2.31.0
+urllib3==2.1.0
+certifi==2023.11.17
+
+# Security and cryptography
+cryptography==41.0.7
+
+# Additional useful packages for FastAPI applications
+python-multipart==0.0.6
+
+# Monitoring and logging
+structlog==23.2.0 
