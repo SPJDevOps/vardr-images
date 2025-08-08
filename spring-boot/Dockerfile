@@ -2,7 +2,8 @@
 FROM eclipse-temurin:21-jre-alpine AS cert-utils
 
 USER root
-RUN apk add --no-cache ca-certificates openssl bash
+RUN apk add --no-cache ca-certificates openssl bash && \
+    mkdir -p /certs && chown -R 65532:65532 /certs
 
 # ---- Stage 2: Compile entrypoint ----
 FROM eclipse-temurin:21-jdk-alpine AS compiler
@@ -18,6 +19,7 @@ COPY --from=cert-utils /opt/java/openjdk/bin/keytool /usr/bin/keytool
 COPY --from=cert-utils /usr/bin/openssl /usr/bin/openssl
 COPY --from=cert-utils /opt/java/openjdk/lib/security/cacerts /app/cacerts
 COPY --from=cert-utils /etc/ssl/certs /etc/ssl/certs
+COPY --from=cert-utils /certs /certs
 
 # Working directories
 WORKDIR /app
@@ -26,9 +28,6 @@ WORKDIR /app
 COPY --from=compiler /tmp/CertificateManager.class /app/CertificateManager.class
 
 VOLUME ["/certs"]
-
-# Ensure /certs is owned by nonroot user (UID 65532)
-RUN mkdir -p /certs && chown -R 65532:65532 /certs
 
 USER nonroot
 ENTRYPOINT ["java", "CertificateManager"]
