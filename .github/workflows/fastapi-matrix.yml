@@ -35,8 +35,8 @@ jobs:
           - python_version: "3.13"
             distroless: "false"
             tag: "python3.13"
-            base_image: "slim"
-            description: "Python 3.13 with Slim runtime"
+            base_image: "alpine"
+            description: "Python 3.13 with Alpine runtime"
 
     steps:
       - name: Checkout repository
@@ -114,7 +114,7 @@ jobs:
           - python_version: "3.13"
             tag: "python3.13"
             distroless: "false"
-            base_image: "slim"
+            base_image: "alpine"
 
     steps:
       - name: Checkout repository
