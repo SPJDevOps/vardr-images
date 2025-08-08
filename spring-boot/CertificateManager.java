@@ -12,12 +12,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class CertificateManager {
     private static final String TRUSTSTORE_PATH = "/app/cacerts";
     private static final String TRUSTSTORE_PASSWORD = "changeit";
-    private static final String CERTS_DIR = "/certs";
-    private static final String HASH_FILE = "/app/certs.hash";
+    private static final String CERTS_DIR = "/app/certs";
+    private static final String HASH_FILE = "/tmp/certs.hash";
     
     // JSON logging for compliance
     private static final boolean JSON_LOGGING = "true".equals(System.getenv("VARD_JSON_LOGS"));
@@ -107,77 +108,91 @@ public class CertificateManager {
     }
     
     private static void importCertificates() throws Exception {
-        Path certsDir = Paths.get(CERTS_DIR);
-        log("Checking for certificates in: " + certsDir.toAbsolutePath(), "INFO");
-        
-        if (!Files.exists(certsDir)) {
-            log("No certificates directory found", "INFO");
-            return;
-        }
-        
-        log("Certificates directory exists", "INFO");
-        
-        AtomicInteger successCount = new AtomicInteger(0);
-        AtomicInteger failureCount = new AtomicInteger(0);
-        Map<String, String> results = new HashMap<>();
-        
-        try (Stream<Path> paths = Files.walk(certsDir, 1)) {
-            long certCount = paths
-                .filter(path -> path.toString().endsWith(".crt"))
-                .count();
+        try {
+            Path certsDir = Paths.get(CERTS_DIR);
             
-            log("Found " + certCount + " .crt files in directory", "INFO");
-            
-            if (certCount == 0) {
-                log("No certificates found in /certs directory", "INFO");
+            if (!Files.exists(certsDir)) {
+                log("No certificates directory found", "INFO");
                 return;
             }
             
-            log("Found " + certCount + " certificate(s)...", "INFO");
+            AtomicInteger successCount = new AtomicInteger(0);
+            AtomicInteger failureCount = new AtomicInteger(0);
+            Map<String, String> results = new HashMap<>();
             
-            // Load existing truststore
-            KeyStore truststore = KeyStore.getInstance("JKS");
-            File truststoreFile = new File(TRUSTSTORE_PATH);
-            if (truststoreFile.exists()) {
-                try (FileInputStream fis = new FileInputStream(TRUSTSTORE_PATH)) {
-                    truststore.load(fis, TRUSTSTORE_PASSWORD.toCharArray());
+            // Check both the main certs directory and the nested certs directory
+            List<Path> searchDirs = new ArrayList<>();
+            searchDirs.add(certsDir);
+            
+            // Check for nested certs directory
+            Path nestedCertsDir = certsDir.resolve("certs");
+            if (Files.exists(nestedCertsDir)) {
+                searchDirs.add(nestedCertsDir);
+            }
+            
+            long totalCertCount = 0;
+            
+            for (Path searchDir : searchDirs) {
+                try (Stream<Path> paths = Files.walk(searchDir, 1)) {
+                    // First, let's see all files before filtering
+                    List<Path> allFiles = paths.filter(Files::isRegularFile).collect(Collectors.toList());
+                    
+                    // Now do the actual filtering
+                    long certCount = allFiles.stream()
+                        .filter(path -> path.toString().endsWith(".crt"))
+                        .count();
+                    
+                    totalCertCount += certCount;
+                    
+                    if (certCount > 0) {
+                        // Process certificates from this directory
+                        allFiles.stream()
+                            .filter(path -> path.toString().endsWith(".crt"))
+                            .forEach(certPath -> {
+                                String alias = certPath.getFileName().toString().replace(".crt", "");
+                                
+                                try {
+                                    // Load existing truststore
+                                    KeyStore truststore = KeyStore.getInstance("JKS");
+                                    File truststoreFile = new File(TRUSTSTORE_PATH);
+                                    if (truststoreFile.exists()) {
+                                        try (FileInputStream fis = new FileInputStream(TRUSTSTORE_PATH)) {
+                                            truststore.load(fis, TRUSTSTORE_PASSWORD.toCharArray());
+                                        }
+                                    } else {
+                                        // Create a new truststore if it doesn't exist
+                                        truststore.load(null, TRUSTSTORE_PASSWORD.toCharArray());
+                                    }
+                                    
+                                    CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                                    
+                                    try (FileInputStream certFis = new FileInputStream(certPath.toFile())) {
+                                        X509Certificate cert = (X509Certificate) cf.generateCertificate(certFis);
+                                        truststore.setCertificateEntry(alias, cert);
+                                        log("Successfully imported certificate: " + alias, "INFO");
+                                        successCount.incrementAndGet();
+                                        results.put(alias, "SUCCESS");
+                                    }
+                                    
+                                    // Save updated truststore
+                                    try (FileOutputStream fos = new FileOutputStream(TRUSTSTORE_PATH)) {
+                                        truststore.store(fos, TRUSTSTORE_PASSWORD.toCharArray());
+                                    }
+                                    
+                                } catch (Exception e) {
+                                    String errorMsg = "Could not import " + alias + ": " + e.getMessage();
+                                    log(errorMsg, "WARN");
+                                    failureCount.incrementAndGet();
+                                    results.put(alias, "FAILED: " + e.getMessage());
+                                }
+                            });
+                    }
                 }
-            } else {
-                // Create a new truststore if it doesn't exist
-                truststore.load(null, TRUSTSTORE_PASSWORD.toCharArray());
-                log("Created new truststore at " + TRUSTSTORE_PATH, "INFO");
             }
             
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            
-            // Import each certificate
-            try (Stream<Path> certPaths = Files.walk(certsDir, 1)) {
-                certPaths
-                    .filter(path -> path.toString().endsWith(".crt"))
-                    .forEach(certPath -> {
-                        String alias = certPath.getFileName().toString().replace(".crt", "");
-                        log("Importing " + alias + " from " + certPath.getFileName(), "INFO");
-                        
-                        try {
-                            try (FileInputStream certFis = new FileInputStream(certPath.toFile())) {
-                                X509Certificate cert = (X509Certificate) cf.generateCertificate(certFis);
-                                truststore.setCertificateEntry(alias, cert);
-                                log("Successfully imported " + alias, "INFO");
-                                successCount.incrementAndGet();
-                                results.put(alias, "SUCCESS");
-                            }
-                        } catch (Exception e) {
-                            String errorMsg = "Could not import " + alias + ": " + e.getMessage();
-                            log(errorMsg, "WARN");
-                            failureCount.incrementAndGet();
-                            results.put(alias, "FAILED: " + e.getMessage());
-                        }
-                    });
-            }
-            
-            // Save updated truststore
-            try (FileOutputStream fos = new FileOutputStream(TRUSTSTORE_PATH)) {
-                truststore.store(fos, TRUSTSTORE_PASSWORD.toCharArray());
+            if (totalCertCount == 0) {
+                log("No certificates found in /app/certs directory", "INFO");
+                return;
             }
             
             // Log summary
@@ -191,7 +206,7 @@ public class CertificateManager {
                     "timestamp", Instant.now().toString(),
                     "successful_imports", successCount.get(),
                     "failed_imports", failureCount.get(),
-                    "total_certificates", (int)certCount,
+                    "total_certificates", (int)totalCertCount,
                     "results", results
                 ));
             }
