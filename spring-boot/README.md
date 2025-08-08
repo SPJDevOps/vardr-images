@@ -163,7 +163,7 @@ echo "-----BEGIN CERTIFICATE-----" > test.crt
 echo "MIIDXTCCAkWgAwIBAgIJAKoK..." >> test.crt
 echo "-----END CERTIFICATE-----" >> test.crt
 
-docker run -v $(pwd):/certs:ro vardr/springboot-secure
+docker run -v $(pwd):/certs:ro vardr/spring-boot
 ```
 
 ### Testing with JSON Logging
@@ -172,7 +172,7 @@ docker run -v $(pwd):/certs:ro vardr/springboot-secure
 docker run \
   -e VARDR_JSON_LOGS=true \
   -v $(pwd):/certs:ro \
-  vardr/springboot-secure
+  vardr/spring-boot
 ```
 
 ## 📝 Logging
@@ -273,14 +273,14 @@ docker run \
 ### Basic Spring Boot Application
 
 ```dockerfile
-FROM ghcr.io/vardr/springboot-secure:latest
+FROM ghcr.io/vardr/spring-boot:latest
 COPY my-application.jar /app/app.jar
 ```
 
 ### High-Performance Spring Boot Application
 
 ```dockerfile
-FROM ghcr.io/vardr/springboot-secure:latest
+FROM ghcr.io/vardr/spring-boot:latest
 COPY my-application.jar /app/app.jar
 
 ENV JAVA_MAX_HEAP=2g
@@ -292,7 +292,7 @@ ENV JAVA_OPTS="-Dserver.port=8080 -Dspring.profiles.active=prod"
 ### Memory-Constrained Spring Boot Application
 
 ```dockerfile
-FROM ghcr.io/vardr/springboot-secure:latest
+FROM ghcr.io/vardr/spring-boot:latest
 COPY my-application.jar /app/app.jar
 
 ENV JAVA_MAX_HEAP=512m
