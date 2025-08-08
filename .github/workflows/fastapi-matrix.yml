@@ -15,6 +15,7 @@ permissions:
   contents: read
   packages: write
   security-events: write
+  id-token: write
 
 env:
   REGISTRY: ghcr.io
@@ -100,7 +101,7 @@ jobs:
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build.outputs.digest }}
-        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes --force --keyless --fulcio-url=https://fulcio.sigstore.dev --rekor-url=https://rekor.sigstore.dev {}@${DIGEST}
 
   test:
     runs-on: ubuntu-latest
