@@ -48,7 +48,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/vardr/${{ matrix.image.name }}
+          images: ${{ env.REGISTRY }}/SPJDevOps/vardr/${{ matrix.image.name }}
           tags: ${{ matrix.image.tags }}
 
       - name: Build and push Docker image
