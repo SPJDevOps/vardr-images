@@ -21,7 +21,7 @@ public class CertificateManager {
     private static final String HASH_FILE = "/tmp/certs.hash";
     
     // JSON logging for compliance
-    private static final boolean JSON_LOGGING = "true".equals(System.getenv("VARD_JSON_LOGS"));
+    private static final boolean JSON_LOGGING = "true".equals(System.getenv("VARDR_JSON_LOGS"));
     
     public static void main(String[] args) {
         try {

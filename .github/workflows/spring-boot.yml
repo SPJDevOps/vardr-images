@@ -30,6 +30,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
       id-token: write
 
     steps:
@@ -64,6 +65,45 @@ jobs:
           #cache-from: none
           #cache-to: none
 
+      - name: Security scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Generate SBOM with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:latest
+          format: 'cyclonedx'
+          output: 'sbom-cyclonedx.json'
+          command: 'fs'
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:latest
+          format: spdx-json
+          output-file: sbom-spdx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sbom-${{ matrix.image.name }}-latest
+          path: |
+            sbom-cyclonedx.json
+            sbom-spdx.json
+          retention-days: 90
+
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3
@@ -76,3 +116,14 @@ jobs:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+      - name: Install cosign for SBOM
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Attach SBOM to image
+        if: github.event_name != 'pull_request'
+        run: |
+          cosign attach sbom --sbom sbom-cyclonedx.json ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:latest
