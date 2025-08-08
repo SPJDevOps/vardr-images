@@ -87,6 +87,28 @@ USER appuser
 ENTRYPOINT ["python", "/certificate_manager.py"]
 
 # ====== Stage 4: Final selector ======
-ARG DISTROLESS=true
-FROM ${DISTROLESS:+distroless} AS final
-FROM ${DISTROLESS:+"scratch"} AS ignore   # This line just prevents syntax errors in Docker Hub parser 
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE} AS final
+WORKDIR /app
+
+# Copy Python dependencies
+COPY --from=builder /usr/local /usr/local
+
+# Copy certificate management tools
+COPY --from=builder /usr/bin/openssl /usr/bin/openssl
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+
+# Copy certificate manager
+COPY --from=builder /certificate_manager.py /certificate_manager.py
+
+# Create volume for certificates
+VOLUME ["/certs"]
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PORT=8000
+ENV WORKERS=1
+
+# Set the entrypoint
+ENTRYPOINT ["python", "/certificate_manager.py"] 

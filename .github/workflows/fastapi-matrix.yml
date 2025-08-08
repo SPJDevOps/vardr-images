@@ -61,6 +61,7 @@ jobs:
           build-args: |
             PYTHON_VERSION=${{ matrix.python_version }}
             DISTROLESS=${{ matrix.distroless }}
+            BASE_IMAGE=${{ matrix.distroless == 'true' && 'gcr.io/distroless/python3-debian12' || 'python:3.13-slim' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: ${{ github.ref != 'refs/heads/main' && 'type=gha' || '' }}
