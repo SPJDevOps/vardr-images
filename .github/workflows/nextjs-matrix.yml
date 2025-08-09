@@ -1,0 +1,148 @@
+name: Build Next.js Matrix Images
+
+on:
+  schedule:
+    - cron: '0 12,0 * * *'
+  push:
+    branches: [ main ]
+    paths: [ 'nextjs/**', '.github/workflows/nextjs-matrix.yml' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'nextjs/**', '.github/workflows/nextjs-matrix.yml' ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: spjdevops/vardr/nextjs
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - node_version: '20'
+            tag: 'node20'
+            description: 'Node.js 20 distroless runtime'
+          - node_version: '22'
+            tag: 'node22'
+            description: 'Node.js 22 distroless runtime'
+          - node_version: '24'
+            tag: 'node24'
+            description: 'Node.js 24 distroless runtime'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ matrix.tag }}
+            type=sha,format=long
+
+      - name: Build and push Next.js image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ./nextjs
+          push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            NODE_VERSION=${{ matrix.node_version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Generate build provenance attestation
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Security scan with Trivy
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: ${{ always() && github.event_name != 'pull_request' }}
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Generate SBOM with Trivy
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+          format: 'cyclonedx'
+          output: 'sbom-cyclonedx.json'
+
+      - name: Generate SBOM with Syft
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+          format: spdx-json
+          output-file: sbom-spdx.json
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ always() && github.event_name != 'pull_request' }}
+        with:
+          name: sbom-${{ matrix.tag }}-${{ github.sha }}
+          path: |
+            sbom-cyclonedx.json
+            sbom-spdx.json
+          retention-days: 90
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Sign the published Docker image
+        if: github.event_name != 'pull_request'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+
+      - name: Attest SBOM to image
+        if: github.event_name != 'pull_request'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          echo "${TAGS}" | xargs -I {} cosign attest --yes --predicate sbom-cyclonedx.json --type cyclonedx {}@${DIGEST} 
