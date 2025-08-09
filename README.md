@@ -35,14 +35,17 @@ All Vardr Secure Images follow a consistent multi-stage build pattern:
 ### Spring Boot
 - **Base**: `ghcr.io/vardr/springboot-secure:latest`
 - **Features**: Spring Boot optimized JVM settings, certificate management
-- **Documentation**: [Spring Boot Documentation](springboot/README.md)
+- **Documentation**: [Spring Boot Documentation](spring-boot/README.md)
 
 ### FastAPI
 - **Base**: `ghcr.io/vardr/fastapi-secure:latest`
 - **Features**: FastAPI optimized Python settings, certificate management
 - **Documentation**: [FastAPI Documentation](fastapi/README.md)
 
-*More framework-specific images coming soon...*
+### Next.js
+- **Base**: `ghcr.io/vardr/nextjs:node20`
+- **Features**: Distroless Node.js runtime with custom CA import via NODE_EXTRA_CA_CERTS
+- **Documentation**: [Next.js Documentation](nextjs/README.md)
 
 ## 📋 Quick Start
 
@@ -177,6 +180,10 @@ docker build -t vardr/springboot-secure .
 # Build FastAPI image
 cd fastapi
 docker build -t vardr/fastapi-secure .
+
+# Build Next.js image
+cd nextjs
+docker build -t vardr/nextjs:node20 .
 ```
 
 ### Testing
