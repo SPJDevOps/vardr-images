@@ -1,4 +1,4 @@
-name: Build and Push Multiple Images
+name: Build and Push Spring Boot Images
 
 on:
   schedule:
@@ -9,29 +9,27 @@ on:
   pull_request:
     branches: [ "main" ]
     paths: [ 'spring-boot/**', '.github/workflows/spring-boot.yml' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: spjdevops/vardr/spring-boot
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        image:
-          - name: spring-boot
-            context: spring-boot
+        include:
+          - java_version: "21"
             tag: "java21"
-          # - name: fast-api
-          #   context: fast-api
-          #   tags: "latest,python13"
-
-    permissions:
-      contents: read
-      packages: write
-      security-events: write
-      id-token: write
+            description: "Spring Boot with Java 21"
 
     steps:
       - name: Checkout repository
@@ -41,6 +39,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -51,24 +50,26 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}
-          tags: ${{ matrix.image.tags }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ matrix.tag }}
+            type=sha,format=long
 
       - name: Build and push Docker image
-        id: build-and-push
+        id: build
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.image.context }}
+          context: ./spring-boot
           push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            JAVA_VERSION=${{ matrix.java_version }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          #cache-from: none
-          #cache-to: none
 
       - name: Security scan with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:${{ matrix.image.tag}}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
@@ -82,15 +83,14 @@ jobs:
       - name: Generate SBOM with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:${{ matrix.image.tag}}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
           format: 'cyclonedx'
           output: 'sbom-cyclonedx.json'
-          command: 'fs'
 
       - name: Generate SBOM with Syft
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ github.actor }}/vardr/${{ matrix.image.name }}:${{ matrix.image.tag}}
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
           format: spdx-json
           output-file: sbom-spdx.json
 
@@ -98,7 +98,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: sbom-${{ matrix.image.name }}-${{ matrix.image.tag}}-${{ github.sha }}
+          name: sbom-${{ matrix.tag }}-${{ github.sha }}
           path: |
             sbom-cyclonedx.json
             sbom-spdx.json
@@ -114,16 +114,68 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
-          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
-
-      - name: Install cosign for SBOM
-        if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3
-        with:
-          cosign-release: 'v2.2.4'
 
       - name: Attach SBOM to image
         if: github.event_name != 'pull_request'
         run: |
           cosign attach sbom --sbom sbom-cyclonedx.json ${{ steps.meta.outputs.tags }}
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - java_version: "21"
+            tag: "java21"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and tag test image
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} test-spring-boot:${{ matrix.tag }}
+
+      - name: Generate test certificate
+        run: |
+          openssl req -x509 -newkey rsa:4096 -keyout key.pem -out test.crt -days 365 -nodes \
+            -subj "/C=US/ST=Test/L=Test/O=Test/CN=test.example.com"
+
+      - name: Test certificate management
+        run: |
+          docker run -d --name test-cert \
+            -v $(pwd)/test.crt:/certs/test.crt:ro \
+            test-spring-boot:${{ matrix.tag }}
+          timeout 30s bash -c 'until docker logs test-cert | grep -q "Certificate loaded"; do sleep 1; done' || true
+          docker ps | grep test-cert
+          docker rm -f test-cert || true
+
+      - name: Test without certificates
+        run: |
+          docker run -d --name test-no-cert test-spring-boot:${{ matrix.tag }}
+          timeout 30s bash -c 'until docker logs test-no-cert | grep -q "No certificates found"; do sleep 1; done' || true
+          docker ps | grep test-no-cert
+          docker rm -f test-no-cert || true
+
+      - name: Test Spring Boot application
+        run: |
+          docker run -d --name test-app \
+            -p 8080:8080 \
+            test-spring-boot:${{ matrix.tag }}
+          timeout 30s bash -c 'until curl -s http://localhost:8080/actuator/health > /dev/null; do sleep 1; done' || true
+          curl -s http://localhost:8080/actuator/health | grep -q "UP"
+          docker rm -f test-app || true
