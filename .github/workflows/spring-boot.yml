@@ -119,8 +119,11 @@ jobs:
 
       - name: Attest SBOM to image
         if: github.event_name != 'pull_request'
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          cosign attest --predicate sbom-cyclonedx.json --type cyclonedx ${{ steps.meta.outputs.tags }}
+          echo "${TAGS}" | xargs -I {} cosign attest --yes --predicate sbom-cyclonedx.json --type cyclonedx {}@${DIGEST}
 
   test:
     runs-on: ubuntu-latest
