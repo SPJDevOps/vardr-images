@@ -11,6 +11,10 @@ on:
     paths: [ 'spring-boot/**', '.github/workflows/spring-boot.yml' ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
@@ -57,7 +61,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./spring-boot
           push: ${{ github.event_name != 'pull_request' }}
@@ -67,6 +71,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Security scan with Trivy
+        if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
@@ -76,11 +81,12 @@ jobs:
 
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: ${{ always() && github.event_name != 'pull_request' }}
         with:
           sarif_file: 'trivy-results.sarif'
 
       - name: Generate SBOM with Trivy
+        if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
@@ -88,6 +94,7 @@ jobs:
           output: 'sbom-cyclonedx.json'
 
       - name: Generate SBOM with Syft
+        if: github.event_name != 'pull_request'
         uses: anchore/sbom-action@v0
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
@@ -96,7 +103,7 @@ jobs:
 
       - name: Upload SBOM artifacts
         uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && github.event_name != 'pull_request' }}
         with:
           name: sbom-${{ matrix.tag }}-${{ github.sha }}
           path: |

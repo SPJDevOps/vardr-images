@@ -11,6 +11,10 @@ on:
     paths: [ 'fastapi/**', '.github/workflows/fastapi-matrix.yml' ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
@@ -64,7 +68,7 @@ jobs:
 
       - name: Build and push FastAPI image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./fastapi
           push: ${{ github.event_name != 'pull_request' }}
@@ -76,18 +80,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Security scan
+        if: github.event_name != 'pull_request'
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
           format: 'sarif'
           output: 'trivy-results.sarif'
-
+          severity: 'CRITICAL,HIGH,MEDIUM'
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: ${{ always() && github.event_name != 'pull_request' }}
         with:
           sarif_file: 'trivy-results.sarif'
-
       - name: Install cosign
         if: github.event_name != 'pull_request'
         uses: sigstore/cosign-installer@v3
