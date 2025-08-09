@@ -117,10 +117,10 @@ jobs:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
 
-      - name: Attach SBOM to image
+      - name: Attest SBOM to image
         if: github.event_name != 'pull_request'
         run: |
-          cosign attach sbom --sbom sbom-cyclonedx.json ${{ steps.meta.outputs.tags }}
+          cosign attest --predicate sbom-cyclonedx.json --type cyclonedx ${{ steps.meta.outputs.tags }}
 
   test:
     runs-on: ubuntu-latest
