@@ -4,7 +4,7 @@ A secure, minimal base image for running FastAPI applications with automatic cer
 
 ## 🎯 Purpose
 
-A production‑grade, framework‑focused hardened image for FastAPI. Beyond a generic “distroless” base, it ships secure defaults, certificate handling, and runtime tuning purpose‑built for FastAPI.
+A production‑grade, framework‑focused hardened image for FastAPI. Beyond a generic "distroless" base, it ships secure defaults, certificate handling, and runtime tuning purpose‑built for FastAPI.
 
 - Security: Distroless (3.12) or slim (3.13), non‑root, read‑only compatible
 - Ease of use: Mount `/certs` for custom CAs; no rebuilds
@@ -68,26 +68,122 @@ docker run \
   --read-only \
   -v $(pwd)/certs:/certs:ro \
   -v /tmp:/tmp \
-  ghcr.io/vardr/fastapi:python12
-```
-
-### With JSON Logging (Compliance)
-
-```bash
-docker run \
-  -e VARDR_JSON_LOGS=true \
-  -v $(pwd)/certs:/certs:ro \
   ghcr.io/vardr/fastapi:python13
 ```
 
-### With Custom FastAPI Settings
+## 📦 Adding Additional Dependencies
 
-```bash
-docker run \
-  -e PORT=8080 \
-  -e WORKERS=4 \
-  -e UVICORN_OPTS="--reload --log-level debug" \
-  ghcr.io/vardr/fastapi:python12
+The Vardr FastAPI base image includes essential packages for most FastAPI applications. However, you may need additional dependencies for your specific use case.
+
+### ✅ Recommended Approach: Multi-Stage Build
+
+This approach maintains security while allowing full flexibility:
+
+```dockerfile
+# ====== Stage 1: Install additional dependencies ======
+FROM python:3.12-alpine AS user-deps
+WORKDIR /app
+
+# Install build dependencies for compiling packages
+RUN apk add --no-cache \
+    build-base \
+    libffi-dev \
+    openssl-dev \
+    postgresql-dev
+
+# Copy and install your additional requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ====== Stage 2: Use Vardr base with user dependencies ======
+FROM ghcr.io/vardr/fastapi:python3.12
+
+# Copy the additional packages from the builder stage
+COPY --from=user-deps /usr/local /usr/local
+
+WORKDIR /app
+COPY app.py /app/app.py
+EXPOSE 8000
+```
+
+### Example Additional Requirements
+
+Create a `requirements.txt` with your additional packages:
+
+```txt
+# Data processing
+pandas==2.2.0
+numpy==1.26.4
+
+# Database connectivity
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.25
+
+# Caching and messaging
+redis==5.0.1
+
+# Authentication and security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+```
+
+### 🔧 Alternative Approaches
+
+#### Simple Extension (Less Secure)
+```dockerfile
+FROM ghcr.io/vardr/fastapi:python3.12
+
+# Temporarily switch to root to install packages
+USER root
+RUN apk add --no-cache build-base && \
+    pip install pandas numpy && \
+    apk del build-base && \
+    rm -rf /var/cache/apk/*
+
+# Switch back to non-root user
+USER 65532
+
+COPY app.py /app/app.py
+EXPOSE 8000
+```
+
+⚠️ **Security Note**: This approach reduces security by temporarily using root privileges.
+
+#### Pre-built Extension Image
+For common dependency combinations, consider creating your own base image:
+
+```dockerfile
+FROM ghcr.io/vardr/fastapi:python3.12 AS base
+
+# Create your own extended base
+FROM python:3.12-alpine AS deps
+RUN apk add --no-cache build-base libffi-dev openssl-dev
+RUN pip install pandas numpy sqlalchemy
+
+FROM base
+COPY --from=deps /usr/local /usr/local
+# This becomes your new base for multiple projects
+```
+
+### 🏗️ Build Dependencies by Category
+
+Choose the appropriate build dependencies based on your requirements:
+
+```dockerfile
+# For data science packages (pandas, numpy, scipy)
+RUN apk add --no-cache build-base gfortran openblas-dev
+
+# For database connectivity
+RUN apk add --no-cache build-base postgresql-dev mysql-dev
+
+# For cryptography and security
+RUN apk add --no-cache build-base libffi-dev openssl-dev
+
+# For image processing
+RUN apk add --no-cache build-base jpeg-dev zlib-dev
+
+# For XML/HTML processing
+RUN apk add --no-cache build-base libxml2-dev libxslt-dev
 ```
 
 ## 🔧 How It Works
