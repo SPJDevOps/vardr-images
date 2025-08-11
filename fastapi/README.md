@@ -4,13 +4,13 @@ A secure, minimal base image for running FastAPI applications with automatic cer
 
 ## 🎯 Purpose
 
-This image solves common problems in FastAPI containerization:
+A production‑grade, framework‑focused hardened image for FastAPI. Beyond a generic “distroless” base, it ships secure defaults, certificate handling, and runtime tuning purpose‑built for FastAPI.
 
-1. **Security** - Runs on a hardened, minimal runtime (Distroless for Python 3.12, Slim for Python 3.13)
-2. **Ease of Use** - Automatically imports additional CA certificates at startup without rebuilds
-3. **Performance** - Smart caching prevents unnecessary certificate re-imports
-4. **Compliance** - JSON logging for automated monitoring and audit trails
-5. **FastAPI Optimized** - Pre-configured Python settings for optimal FastAPI performance
+- Security: Distroless (3.12) or slim (3.13), non‑root, read‑only compatible
+- Ease of use: Mount `/certs` for custom CAs; no rebuilds
+- Performance: Hash‑based CA caching; sensible uvicorn defaults
+- Compliance: Optional JSON logs for auditability
+- Framework focused: Tuning and defaults made specifically for FastAPI workloads
 
 ## 🏗️ Architecture
 
@@ -75,7 +75,7 @@ docker run \
 
 ```bash
 docker run \
-  -e VARD_JSON_LOGS=true \
+  -e VARDR_JSON_LOGS=true \
   -v $(pwd)/certs:/certs:ro \
   ghcr.io/vardr/fastapi:python13
 ```
@@ -178,7 +178,7 @@ docker run -v $(pwd):/certs:ro vardr/fastapi:python12
 
 ```bash
 docker run \
-  -e VARD_JSON_LOGS=true \
+  -e VARDR_JSON_LOGS=true \
   -v $(pwd):/certs:ro \
   vardr/fastapi:python13
 ```
@@ -205,7 +205,7 @@ docker run \
 ### Certificate Management
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VARD_JSON_LOGS` | `false` | Enable JSON logging for compliance |
+| `VARDR_JSON_LOGS` | `false` | Enable JSON logging for compliance |
 
 ### FastAPI Configuration
 | Variable | Default | Description |

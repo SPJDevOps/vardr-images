@@ -1,12 +1,12 @@
 # Vardr Next.js Hardened Image
 
-A minimal, security-focused runtime image for Next.js apps with support for importing custom CA certificates. Runs as non-root by default and works well in regulated environments and air-gapped clusters.
+A minimal, security‑focused, framework‑focused runtime image for Next.js apps with built‑in certificate handling. Beyond generic hardened bases, it tunes Node and CA management specifically for Next.js. Runs as non‑root by default and works well in regulated and air‑gapped environments.
 
 ## Key Features
 - Runs as non-root (distroless Node.js)
 - Custom CA certificates import via `/app/certs/*.crt`
 - Uses `NODE_EXTRA_CA_CERTS` so system CAs remain available
-- JSON logging option via `VARD_JSON_LOGS=true`
+- JSON logging option via `VARDR_JSON_LOGS=true`
 - Works with Next.js standalone output (`output: 'standalone'`)
 
 ## Usage
@@ -36,7 +36,7 @@ COPY . .
 RUN npm run build
 
 # Runtime using Vardr Next.js base
-FROM ghcr.io/spjdevops/vardr/nextjs:node20
+FROM ghcr.io/vardr/nextjs:node20
 WORKDIR /app
 
 # Copy standalone output
@@ -58,14 +58,14 @@ EXPOSE 3000
 ```bash
 docker run --rm -p 3000:3000 \
   -v $(pwd)/certs:/app/certs:ro \
-  ghcr.io/spjdevops/vardr/nextjs:node20
+  ghcr.io/vardr/nextjs:node20
 ```
 
 ## Environment Variables
 - `PORT` (default: 3000)
 - `HOST` (default: 0.0.0.0)
 - `NODE_ENV` (default: production)
-- `VARD_JSON_LOGS` (default: false)
+- `VARDR_JSON_LOGS` (default: false)
 
 ## How it starts
 - The entrypoint searches for `/app/.next/standalone/server.js` or `/app/server.js` and starts it with Node.

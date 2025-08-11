@@ -31,7 +31,7 @@ VOLUME ["/app/certs"]
 ENV PORT=3000 \
     HOST=0.0.0.0 \
     NODE_ENV=production \
-    VARD_JSON_LOGS=false
+    VARDR_JSON_LOGS=false
 
 # The manager will search for /app/server.js or /app/.next/standalone/server.js to start
 ENTRYPOINT ["node", "/certificate_manager.mjs"] 

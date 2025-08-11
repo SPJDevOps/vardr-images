@@ -1,16 +1,19 @@
 # Vardr Secure Images
 
-A collection of secure, minimal base images for running applications with automatic certificate management and enterprise-grade security features.
+Framework‑focused hardened container images with automatic certificate management and secure defaults for Spring Boot, FastAPI, and Next.js.
 
 ## 🎯 Purpose
 
-The Vardr Secure Images solve common problems in containerized application deployment:
+Vardr Secure Images are production‑grade, framework‑focused hardened images. They go beyond generic “distroless” bases by baking in secure defaults, certificate management, and runtime tuning for each framework.
 
-1. **Security** - Runs on hardened, minimal runtimes (Distroless, non-root)
-2. **Ease of Use** - Automatically imports additional CA certificates at startup without rebuilds
-3. **Performance** - Smart caching prevents unnecessary certificate re-imports
-4. **Compliance** - JSON logging for automated monitoring and audit trails
-5. **Framework Optimized** - Pre-configured settings for optimal performance
+- Security: Distroless/minimal runtimes, non‑root, read‑only compatible
+- Ease of use: Drop in your app; mount `/certs` to add CAs without rebuilding
+- Performance: Hash‑based certificate caching, optimized runtime flags
+- Compliance: JSON logs and predictable, auditable startup
+- Framework focused: Pre‑tuned for Spring Boot, FastAPI, and Next.js
+
+Why this matters vs other hardened images:
+- Many hardened bases stop at “minimal + non‑root.” Vardr also configures framework‑specific runtime flags, logging, and certificate handling so teams spend less time on glue code and more on shipping.
 
 ## 🏗️ Architecture
 
@@ -33,26 +36,26 @@ All Vardr Secure Images follow a consistent multi-stage build pattern:
 ## 🚀 Available Images
 
 ### Spring Boot
-- **Base**: `ghcr.io/vardr/springboot:java21`
-- **Features**: Spring Boot optimized JVM settings, certificate management
-- **Documentation**: [Spring Boot Documentation](spring-boot/README.md)
+- Base: `ghcr.io/vardr/spring-boot:java21`
+- Focus: JVM flags and truststore handling tuned for Spring Boot
+- Docs: [Spring Boot](spring-boot/README.md)
 
 ### FastAPI
-- **Base**: `ghcr.io/vardr/fastapi:python3.13`
-- **Features**: FastAPI optimized Python settings, certificate management
-- **Documentation**: [FastAPI Documentation](fastapi/README.md)
+- Base: `ghcr.io/vardr/fastapi:python12` and `ghcr.io/vardr/fastapi:python13`
+- Focus: Uvicorn defaults and Python CA bundle handling
+- Docs: [FastAPI](fastapi/README.md)
 
 ### Next.js
-- **Base**: `ghcr.io/vardr/nextjs:node20`
-- **Features**: Distroless Node.js runtime with custom CA import via NODE_EXTRA_CA_CERTS
-- **Documentation**: [Next.js Documentation](nextjs/README.md)
+- Base: `ghcr.io/vardr/nextjs:node20`
+- Focus: Standalone output and `NODE_EXTRA_CA_CERTS` integration
+- Docs: [Next.js](nextjs/README.md)
 
 ## 📋 Quick Start
 
 ### Basic Usage
 
 ```dockerfile
-FROM ghcr.io/vardr/springboot:java21
+FROM ghcr.io/vardr/spring-boot:java21
 COPY my-service.jar /app/app.jar
 ```
 
@@ -78,7 +81,7 @@ docker run \
 
 ```bash
 docker run \
-  -e VARD_JSON_LOGS=true \
+  -e VARDR_JSON_LOGS=true \
   -v $(pwd)/certs:/certs:ro \
   my-service
 ```
@@ -174,15 +177,16 @@ docker run \
 
 ```bash
 # Build Spring Boot image
-cd springboot
-docker build -t vardr/springboot .
+cd spring-boot
+docker build -t vardr/spring-boot .
 
-# Build FastAPI image
-cd fastapi
-docker build -t vardr/fastapi .
+# Build FastAPI images
+cd ../fastapi
+docker build --build-arg PYTHON_VERSION=3.12 --build-arg DISTROLESS=true -t vardr/fastapi:python12 .
+docker build --build-arg PYTHON_VERSION=3.13 --build-arg DISTROLESS=false -t vardr/fastapi:python13 .
 
 # Build Next.js image
-cd nextjs
+cd ../nextjs
 docker build -t vardr/nextjs:node20 .
 ```
 
@@ -194,7 +198,7 @@ echo "-----BEGIN CERTIFICATE-----" > test.crt
 echo "MIIDXTCCAkWgAwIBAgIJAKoK..." >> test.crt
 echo "-----END CERTIFICATE-----" >> test.crt
 
-docker run -v $(pwd):/certs:ro vardr/springboot-secure
+docker run -v $(pwd):/certs:ro vardr/spring-boot
 ```
 
 ## 🤝 Contributing

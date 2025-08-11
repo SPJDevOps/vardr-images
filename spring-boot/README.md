@@ -4,13 +4,13 @@ A secure, minimal base image for running Spring Boot applications with automatic
 
 ## 🎯 Purpose
 
-This image solves common problems in Spring Boot containerization:
+A production‑grade, framework‑focused hardened image for Spring Boot. Beyond a generic “distroless” base, it ships secure defaults, certificate handling, and JVM tuning made for Spring Boot.
 
-1. **Security** - Runs on a hardened, minimal runtime (Distroless, non-root)
-2. **Ease of Use** - Automatically imports additional CA certificates at startup without rebuilds
-3. **Performance** - Smart caching prevents unnecessary certificate re-imports
-4. **Compliance** - JSON logging for automated monitoring and audit trails
-5. **Spring Boot Optimized** - Pre-configured JVM settings for optimal Spring Boot performance
+- Security: Distroless Java 21, non‑root, read‑only compatible
+- Ease of use: Mount `/certs` for custom CAs; no rebuilds
+- Performance: Hash‑based CA caching; sensible JVM defaults
+- Compliance: Optional JSON logs for auditability
+- Framework focused: Defaults and flags tuned specifically for Spring Boot
 
 ## 🏗️ Architecture
 
@@ -151,7 +151,7 @@ docker run \
 ### Building the Image
 
 ```bash
-cd springboot
+cd spring-boot
 docker build -t vardr/spring-boot .
 ```
 
@@ -310,7 +310,7 @@ ENV JAVA_GC_TYPE=g1
 
 ## 📄 License
 
-[Add your license information here]
+This project is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0).
 
 ## 🆘 Support
 
