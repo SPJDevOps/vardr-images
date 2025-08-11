@@ -24,7 +24,7 @@ class CertificateManager:
     """Manages certificate import and FastAPI application startup."""
     
     def __init__(self):
-        self.certs_dir = "/certs"
+        self.certs_dir = "/app/certs"
         self.hash_file = "/app/certs.hash"
         self.json_logging = os.getenv("VARD_JSON_LOGS", "false").lower() == "true"
         self.custom_ca_bundle = "/app/custom_ca_bundle.pem"

@@ -19,7 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY certificate_manager.py /certificate_manager.py
 
 # Create /certs directory with proper ownership for distroless stage
-RUN mkdir -p /certs && chown -R 65532:65532 /certs
+RUN mkdir -p /app/certs && chown -R 65532:65532 /app/certs
 
 # ====== Stage 2: Distroless runtime ======
 FROM gcr.io/distroless/python3-debian12 AS distroless
@@ -28,8 +28,8 @@ COPY --from=builder /usr/local /usr/local
 COPY --from=builder /usr/bin/openssl /usr/bin/openssl
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /certificate_manager.py /certificate_manager.py
-COPY --from=builder /certs /certs
-VOLUME ["/certs"]
+COPY --from=builder /app/certs /app/certs
+VOLUME ["/app/certs"]
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=8000 WORKERS=1
 # Distroless runs as nonroot by default, ensure /certs is accessible
 USER 65532:65532
@@ -45,9 +45,9 @@ COPY --from=builder /usr/local /usr/local
 COPY --from=builder /usr/bin/openssl /usr/bin/openssl
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 COPY --from=builder /certificate_manager.py /certificate_manager.py
-VOLUME ["/certs"]
+VOLUME ["/app/certs"]
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PORT=8000 WORKERS=1
 RUN addgroup -g 1000 appuser && adduser -D -s /bin/sh -u 1000 -G appuser appuser && \
-    mkdir -p /certs && chown -R appuser:appuser /certs
+    mkdir -p /app/certs && chown -R appuser:appuser /app/certs
 USER appuser
 ENTRYPOINT ["python", "/certificate_manager.py"]
