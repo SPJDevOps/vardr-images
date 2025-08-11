@@ -26,7 +26,7 @@ class CertificateManager:
     def __init__(self):
         self.certs_dir = "/app/certs"
         self.hash_file = "/app/certs.hash"
-        self.json_logging = os.getenv("VARD_JSON_LOGS", "false").lower() == "true"
+        self.json_logging = os.getenv("VARDR_JSON_LOGS", "false").lower() == "true"
         self.custom_ca_bundle = "/app/custom_ca_bundle.pem"
         
     def log(self, message: str, level: str = "INFO") -> None:

@@ -33,12 +33,12 @@ All Vardr Secure Images follow a consistent multi-stage build pattern:
 ## 🚀 Available Images
 
 ### Spring Boot
-- **Base**: `ghcr.io/vardr/springboot-secure:latest`
+- **Base**: `ghcr.io/vardr/springboot:java21`
 - **Features**: Spring Boot optimized JVM settings, certificate management
 - **Documentation**: [Spring Boot Documentation](spring-boot/README.md)
 
 ### FastAPI
-- **Base**: `ghcr.io/vardr/fastapi-secure:latest`
+- **Base**: `ghcr.io/vardr/fastapi:python3.13`
 - **Features**: FastAPI optimized Python settings, certificate management
 - **Documentation**: [FastAPI Documentation](fastapi/README.md)
 
@@ -52,7 +52,7 @@ All Vardr Secure Images follow a consistent multi-stage build pattern:
 ### Basic Usage
 
 ```dockerfile
-FROM ghcr.io/vardr/springboot-secure:latest
+FROM ghcr.io/vardr/springboot:java21
 COPY my-service.jar /app/app.jar
 ```
 
@@ -140,7 +140,7 @@ docker run \
 ### Certificate Management
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VARD_JSON_LOGS` | `false` | Enable JSON logging for compliance |
+| `VARDR_JSON_LOGS` | `false` | Enable JSON logging for compliance |
 
 *Framework-specific environment variables are documented in each image's README.*
 
@@ -175,11 +175,11 @@ docker run \
 ```bash
 # Build Spring Boot image
 cd springboot
-docker build -t vardr/springboot-secure .
+docker build -t vardr/springboot .
 
 # Build FastAPI image
 cd fastapi
-docker build -t vardr/fastapi-secure .
+docker build -t vardr/fastapi .
 
 # Build Next.js image
 cd nextjs

@@ -14,7 +14,7 @@ class CertificateManager {
     this.certsDir = '/app/certs';
     this.hashFile = '/app/certs.hash';
     this.customBundle = '/app/custom_ca_bundle.pem';
-    this.jsonLogs = (process.env.VARD_JSON_LOGS || 'false').toLowerCase() === 'true';
+    this.jsonLogs = (process.env.VARDR_JSON_LOGS || 'false').toLowerCase() === 'true';
   }
 
   log(message, level = 'INFO') {
