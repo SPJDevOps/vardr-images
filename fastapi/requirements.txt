@@ -1,6 +1,6 @@
 # FastAPI and ASGI server
 fastapi==0.116.1
-uvicorn[standard]==0.35.0
+uvicorn[standard]==0.36.0
 
 # HTTP client and certificate handling
 requests==2.32.5
