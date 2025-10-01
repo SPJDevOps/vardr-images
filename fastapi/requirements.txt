@@ -8,7 +8,7 @@ urllib3==2.5.0
 certifi==2025.8.3
 
 # Security and cryptography
-cryptography==45.0.7
+cryptography==46.0.2
 
 # Additional useful packages for FastAPI applications
 python-multipart==0.0.20
