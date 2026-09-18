@@ -14,4 +14,4 @@ cryptography==50.0.0
 python-multipart==0.0.31
 
 # Monitoring and logging
-structlog==25.5.0
+structlog==26.1.0
