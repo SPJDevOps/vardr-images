@@ -5,7 +5,7 @@ uvicorn[standard]==0.35.0
 # HTTP client and certificate handling
 requests==2.33.0
 urllib3==2.7.0
-certifi==2025.10.5
+certifi==2026.7.22
 
 # Security and cryptography
 cryptography==50.0.0
