@@ -11,7 +11,7 @@ certifi==2025.10.5
 cryptography==50.0.0
 
 # Additional useful packages for FastAPI applications
-python-multipart==0.0.31
+python-multipart==0.0.32
 
 # Monitoring and logging
 structlog==25.5.0
